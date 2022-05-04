@@ -28,3 +28,592 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r, Libraries, message = FALSE}
+
+packrat::init()
+
+#### Libraries ####
+
+library(tidyverse)
+
+library(janitor)
+
+library(rstatix)
+
+library(sjstats)
+
+library(pwr)
+
+library(ggpubr)
+
+```
+
+```{r}
+# Read in and clean data file
+
+df_igt <- read_csv("IGT_Behav_Data.csv")
+
+df_igt <- clean_names(df_igt)
+
+
+df_igt <- df_igt %>% rename(advice_condition = advice_condition_15)
+
+df_igt <- df_igt %>% rename(advice_condition_1 = advice_condition_16)
+
+```
+
+
+
+```{r}
+
+# Prepare data to check the demographic differences between age groups.
+
+# Set and reorder factors
+
+df_igt$age_group <- as.factor(df_igt$age_group)
+
+df_igt <- df_igt %>% 
+  reorder_levels(age_group, order = c("Young", "Older"))
+
+df_igt$advice_condition <- as.factor(df_igt$advice_condition)
+
+df_igt <- df_igt %>% 
+  reorder_levels(advice_condition, order = c("None", "A", "B"))
+
+df_igt$advice_condition_1 <- as.factor(df_igt$advice_condition_1)
+
+df_igt <- df_igt %>% 
+  reorder_levels(advice_condition_1, order = c("None", "Bad"))
+
+df_igt$gender <- as.factor(df_igt$gender)
+
+df_igt$marital_status <- as.factor(df_igt$marital_status)
+
+df_igt <- df_igt %>% 
+  reorder_levels(marital_status, order = c("Single", "In a relationship", "De facto",
+                                           "Married", "Divorced", "Widowed"))
+
+
+```
+
+
+
+```{r}
+
+# Mean and SD for age
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(age)
+
+# Gender in each age group
+
+
+df_igt %>% 
+  group_by(age_group, gender) %>% 
+  get_summary_stats(age, type = "mean")
+
+
+```
+
+
+
+
+
+```{r}
+### Education ###
+
+# Summary stats by age group for years of education
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(education, type="mean_sd")
+
+# Box plot education
+
+bxp_edu <- ggboxplot(
+  df_igt, x = "age_group", y = "education",
+  ylab = "Years of Education", xlab = "Age Groups", add = "jitter"
+  )
+bxp_edu
+
+## Identify outliers in Education ##
+
+df_igt %>%
+  group_by(age_group) %>%
+  identify_outliers(education)
+
+# 3 extremes: participants 105,123 and 240 (rows 44, 50 and 88)
+
+## Compute Shapiro wilk test by groups ##
+
+df_igt %>% 
+  group_by(age_group) %>%
+  shapiro_test(education)
+
+
+## Draw a qq plot by group ##
+
+ggqqplot(df_igt, x = "education", facet.by = "age_group")
+
+## Check equality of variances ##
+
+df_igt %>% levene_test(education ~ age_group)
+
+# Assumption met
+
+## Compute Weltch's test ##
+
+edu.test <- df_igt %>% 
+  t_test(education ~ age_group) %>%
+  add_significance()
+edu.test
+
+# Significant difference between the age groups
+
+## Get the effect size ##
+
+df_igt %>%  cohens_d(education ~ age_group, var.equal = TRUE)
+
+```
+
+
+
+```{r}
+## Re-run Education analyses with the 3 extreme outliers removed ##
+
+edu_outliers_removed <- df_igt[-c(44, 50, 88),]
+
+## T-test with outliers removed ##
+
+edu.test2 <- edu_outliers_removed %>% 
+  t_test(education ~ age_group) %>%
+  add_significance()
+edu.test2
+
+# Does not change the significance
+
+```
+
+
+```{r}
+### Health ###
+
+# Ms and SDs between age groups on health ratings
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(current_health_rating, type = "mean_sd")
+
+## Boxplots of health ratings ##
+
+bxp_health <- ggboxplot(
+  df_igt, x = "age_group", y = "current_health_rating", 
+  ylab = "Current Health Rating", xlab = "Age Groups", add = "jitter"
+  )
+bxp_health
+
+## Identify outliers in health ratings ##
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(current_health_rating)
+
+# No extreme outliers identified
+
+## Shapiro Wilks test by groups ##
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(current_health_rating)
+
+# Significant
+
+# Check levene's test
+
+df_igt %>% levene_test(current_health_rating ~ age_group)
+
+# Assumption met
+
+## Compute Weltch's test ##
+
+health.test <- df_igt %>% 
+  t_test(current_health_rating ~ age_group) %>%
+  add_significance()
+health.test
+
+# No significant difference
+
+## Effect size for health ##
+
+df_igt %>%  cohens_d(current_health_rating ~ age_group, var.equal = FALSE)
+
+```
+
+
+```{r}
+### Depression ###
+
+# Ms and SDs for each group on depression score
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(depression_score, type = "mean_sd")
+
+# Boxplots of depression scores
+
+bxp_dep <- ggboxplot(
+  df_igt, x = "age_group", y = "depression_score", 
+  ylab = "Depression", xlab = "Age Groups", add = "jitter"
+  )
+bxp_dep
+
+# Get outliers 
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(depression_score)
+
+# No extreme outliers identified
+
+# Shapiro Wilks test by groups
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(depression_score)
+
+# Significant... But >30 in each group. 
+
+# Levene's test
+
+df_igt %>% levene_test(depression_score~age_group)
+
+# Assumption met
+
+## Perform test on depression ##
+
+dep.test <- df_igt %>% 
+  t_test(depression_score ~ age_group) %>%
+  add_significance()
+dep.test
+
+# Significant difference between age groups
+
+## Depression score effect size
+
+df_igt %>%  cohens_d(depression_score ~ age_group, var.equal = FALSE)
+
+
+```
+
+
+```{r}
+### Anxiety scores ###
+
+# Ms and SDs for each age group
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(anxiety_score, type = "mean_sd")
+
+# Boxplots of anxiety scores
+
+bxp_anx <- ggboxplot(
+  df_igt, x = "age_group", y = "anxiety_score", 
+  ylab = "Anxiety", xlab = "Age Groups", add = "jitter"
+  )
+bxp_anx
+
+# Identify anxiety outliers 
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(anxiety_score)
+
+# 2 extremes: participants 101, 105, rows 41 and 44
+
+# Shapiro Wilks test by groups
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(anxiety_score)
+
+# Significant
+
+# Levene's test
+
+df_igt %>% levene_test(anxiety_score~age_group)
+
+# Assumption met
+
+# Anxiety t test
+
+anx.test <- df_igt %>% 
+  t_test(anxiety_score ~ age_group) %>%
+  add_significance()
+anx.test
+
+# Significant difference between age groups
+
+# Effect size
+
+df_igt %>%  cohens_d(anxiety_score ~ age_group, var.equal = FALSE)
+
+
+```
+
+
+```{r}
+
+## Re-run anxiety analyses with the 2 extreme outliers removed ##
+
+anx_outliers_removed <- df_igt[-c(41, 44),]
+
+## T-test with outliers removed ##
+
+anx.test2 <- anx_outliers_removed %>% 
+  t_test(anxiety_score ~ age_group) %>%
+  add_significance()
+anx.test2
+
+# Still significant
+
+```
+
+
+```{r}
+### Stress scores ###
+
+# Ms and SDs
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(stress_score, type = "mean_sd")
+
+# Stress boxplots 
+
+bxp_stress <- ggboxplot(
+  df_igt, x = "age_group", y = "stress_score", 
+  ylab = "Stress", xlab = "Age Groups", add = "jitter"
+)
+bxp_stress
+
+## Identify outliers ##
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(stress_score)
+
+# None!
+
+# Shapiro Wilks test on stress 
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(stress_score)
+
+# Significant for older adults
+
+# Levene's test on stress 
+
+df_igt %>% levene_test(stress_score~age_group)
+
+# Assumption met
+
+# Compute t test on stress
+
+stress.test <- df_igt %>% 
+  t_test(stress_score ~ age_group) %>%
+  add_significance()
+stress.test
+
+# Effect sizes for stress
+
+df_igt %>%  cohens_d(stress_score ~ age_group, var.equal = FALSE)
+
+```
+
+
+```{r}
+
+### Digit span forwards / Short-term memory ###
+
+# Ms and SDs for each age group
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(dig_span_f, type = "mean_sd")
+
+# Box plots for digit span forwards
+
+bxp_dig_f <- ggboxplot(
+  df_igt, x = "age_group", y = "dig_span_f", 
+  ylab = "Short term memory", xlab = "Age Groups", add = "jitter"
+)
+bxp_dig_f
+
+# Digit span forwards outliers 
+
+df_igt %>% 
+  group_by(age_group) %>%
+  identify_outliers(dig_span_f)
+
+# None found
+
+# Shapiro Wilks for digit span forwards
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(dig_span_f)
+
+# Significant
+
+# Levene's test for short term memory
+
+df_igt %>% levene_test(dig_span_f~age_group)
+
+# Significant - Assumption violated
+
+# T Test for digit span forwards
+
+dig.f.test <- df_igt %>% 
+  t_test(dig_span_f ~ age_group) %>%
+  add_significance()
+dig.f.test
+
+# Effect size
+
+df_igt %>%  cohens_d(dig_span_f ~ age_group, var.equal = FALSE)
+
+```
+
+
+```{r}
+
+### Digit span backwards / Working memory ###
+
+# Ms and SDs for each age group
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(dig_span_b, type ="mean_sd")
+
+# Boxplots for digit span backwards
+
+bxp_dig_b <- ggboxplot(
+  df_igt, x = "age_group", y = "dig_span_b", 
+  ylab = "Working memory", xlab = "Age Groups", add = "jitter"
+)
+bxp_dig_b
+
+# Look for outliers in digit span backwards
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(dig_span_b)
+
+# No extremes
+
+# Shapiro Wilks on digit span backwards
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(dig_span_b)
+
+# Significant
+
+# Levene's test on working memory
+
+df_igt %>% levene_test(dig_span_b~age_group)
+
+# not significant
+
+# Compute t test
+
+dig.b.test <- df_igt %>% 
+  t_test(dig_span_b ~ age_group) %>%
+  add_significance()
+dig.b.test
+
+# Effect size
+
+df_igt %>%  cohens_d(dig_span_b ~ age_group, var.equal = FALSE)
+
+
+```
+
+
+```{r}
+### Matrices / Fluid intelligence ###
+
+# Ms and SDs for each age group
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  get_summary_stats(matrices, type="mean_sd")
+
+# Matrices boxplots 
+
+bxp_mats <- ggboxplot(
+  df_igt, x = "age_group", y = "matrices", 
+  ylab = "Fluid Intelligence", xlab = "Age Groups", add = "jitter"
+)
+bxp_mats
+
+# Outliers for matrices
+
+df_igt %>% 
+  group_by(age_group) %>% 
+  identify_outliers(matrices)
+
+# 4 extremes: P 206, 228, 253, 262 (rows: 58, 76, 100, 109)
+
+# Shapiro wilks on matrices 
+
+df_igt %>%
+  group_by(age_group) %>%
+  shapiro_test(matrices)
+
+# Significant
+
+# Levene's test 
+
+df_igt %>% levene_test(matrices~age_group)
+
+# Assumption violated
+
+# Compute t test for matrices
+
+mat.test <- df_igt %>% 
+  t_test(matrices ~ age_group) %>%
+  add_significance()
+mat.test
+
+# Significant difference
+
+# Effect sizes for matrices 
+
+df_igt %>%  cohens_d(matrices ~ age_group, var.equal = FALSE)
+
+```
+
+
+```{r}
+
+## Re-run matrices analyses with extreme outliers removed ##
+
+mat_outliers_removed <- df_igt[-c(58, 76, 100, 109),]
+
+## T-test with outliers removed ##
+
+mat.test2 <- anx_outliers_removed %>% 
+  t_test(matrices ~ age_group) %>%
+  add_significance()
+mat.test2
+
+# Still significant
+
+```
+
