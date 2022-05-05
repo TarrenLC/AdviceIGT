@@ -9,30 +9,18 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 
-```{r, Libraries, message = FALSE}
+```{r}
 
 packrat::init()
+
+```
+
+
+```{r, Libraries, message = FALSE}
 
 #### Libraries ####
 
@@ -48,12 +36,16 @@ library(pwr)
 
 library(ggpubr)
 
+library(afex)
+
+library(emmeans)
+
 ```
 
 ```{r}
 # Read in and clean data file
 
-df_igt <- read_csv("IGT_Behav_Data.csv")
+df_igt <- read_csv("IGT_Behav_Data_5blocks.csv")
 
 df_igt <- clean_names(df_igt)
 
@@ -61,12 +53,6 @@ df_igt <- clean_names(df_igt)
 df_igt <- df_igt %>% rename(advice_condition = advice_condition_15)
 
 df_igt <- df_igt %>% rename(advice_condition_1 = advice_condition_16)
-
-```
-
-
-
-```{r}
 
 # Prepare data to check the demographic differences between age groups.
 
@@ -89,19 +75,6 @@ df_igt <- df_igt %>%
 
 df_igt$gender <- as.factor(df_igt$gender)
 
-df_igt$marital_status <- as.factor(df_igt$marital_status)
-
-df_igt <- df_igt %>% 
-  reorder_levels(marital_status, order = c("Single", "In a relationship", "De facto",
-                                           "Married", "Divorced", "Widowed"))
-
-
-```
-
-
-
-```{r}
-
 # Mean and SD for age
 
 df_igt %>% 
@@ -120,12 +93,10 @@ df_igt %>%
 
 
 
-
-
 ```{r}
-### Education ###
+###### Education ######
 
-# Summary stats by age group for years of education
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -139,7 +110,7 @@ bxp_edu <- ggboxplot(
   )
 bxp_edu
 
-## Identify outliers in Education ##
+# Identify outliers in Education 
 
 df_igt %>%
   group_by(age_group) %>%
@@ -147,24 +118,20 @@ df_igt %>%
 
 # 3 extremes: participants 105,123 and 240 (rows 44, 50 and 88)
 
-## Compute Shapiro wilk test by groups ##
+# Compute Shapiro wilk test by groups
 
 df_igt %>% 
   group_by(age_group) %>%
   shapiro_test(education)
 
 
-## Draw a qq plot by group ##
-
-ggqqplot(df_igt, x = "education", facet.by = "age_group")
-
-## Check equality of variances ##
+# Levene's test
 
 df_igt %>% levene_test(education ~ age_group)
 
 # Assumption met
 
-## Compute Weltch's test ##
+# Compute Weltch's test 
 
 edu.test <- df_igt %>% 
   t_test(education ~ age_group) %>%
@@ -173,7 +140,7 @@ edu.test
 
 # Significant difference between the age groups
 
-## Get the effect size ##
+# Get the effect size 
 
 df_igt %>%  cohens_d(education ~ age_group, var.equal = TRUE)
 
@@ -186,7 +153,7 @@ df_igt %>%  cohens_d(education ~ age_group, var.equal = TRUE)
 
 edu_outliers_removed <- df_igt[-c(44, 50, 88),]
 
-## T-test with outliers removed ##
+# T-test with outliers removed 
 
 edu.test2 <- edu_outliers_removed %>% 
   t_test(education ~ age_group) %>%
@@ -199,15 +166,15 @@ edu.test2
 
 
 ```{r}
-### Health ###
+###### Health ######
 
-# Ms and SDs between age groups on health ratings
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
   get_summary_stats(current_health_rating, type = "mean_sd")
 
-## Boxplots of health ratings ##
+# Boxplots of health ratings 
 
 bxp_health <- ggboxplot(
   df_igt, x = "age_group", y = "current_health_rating", 
@@ -215,7 +182,7 @@ bxp_health <- ggboxplot(
   )
 bxp_health
 
-## Identify outliers in health ratings ##
+# Identify outliers in health ratings
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -223,7 +190,7 @@ df_igt %>%
 
 # No extreme outliers identified
 
-## Shapiro Wilks test by groups ##
+# Shapiro Wilks test by groups 
 
 df_igt %>%
   group_by(age_group) %>%
@@ -231,13 +198,13 @@ df_igt %>%
 
 # Significant
 
-# Check levene's test
+# Levene's test
 
 df_igt %>% levene_test(current_health_rating ~ age_group)
 
 # Assumption met
 
-## Compute Weltch's test ##
+# Compute Weltch's test 
 
 health.test <- df_igt %>% 
   t_test(current_health_rating ~ age_group) %>%
@@ -246,7 +213,7 @@ health.test
 
 # No significant difference
 
-## Effect size for health ##
+# Effect size for health 
 
 df_igt %>%  cohens_d(current_health_rating ~ age_group, var.equal = FALSE)
 
@@ -254,9 +221,9 @@ df_igt %>%  cohens_d(current_health_rating ~ age_group, var.equal = FALSE)
 
 
 ```{r}
-### Depression ###
+###### Depression ######
 
-# Ms and SDs for each group on depression score
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -292,7 +259,7 @@ df_igt %>% levene_test(depression_score~age_group)
 
 # Assumption met
 
-## Perform test on depression ##
+# T-test 
 
 dep.test <- df_igt %>% 
   t_test(depression_score ~ age_group) %>%
@@ -301,7 +268,7 @@ dep.test
 
 # Significant difference between age groups
 
-## Depression score effect size
+# Depression score effect size
 
 df_igt %>%  cohens_d(depression_score ~ age_group, var.equal = FALSE)
 
@@ -310,9 +277,9 @@ df_igt %>%  cohens_d(depression_score ~ age_group, var.equal = FALSE)
 
 
 ```{r}
-### Anxiety scores ###
+###### Anxiety scores ######
 
-# Ms and SDs for each age group
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -371,7 +338,7 @@ df_igt %>%  cohens_d(anxiety_score ~ age_group, var.equal = FALSE)
 
 anx_outliers_removed <- df_igt[-c(41, 44),]
 
-## T-test with outliers removed ##
+# T-test with outliers removed 
 
 anx.test2 <- anx_outliers_removed %>% 
   t_test(anxiety_score ~ age_group) %>%
@@ -384,9 +351,9 @@ anx.test2
 
 
 ```{r}
-### Stress scores ###
+###### Stress scores ######
 
-# Ms and SDs
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -438,9 +405,9 @@ df_igt %>%  cohens_d(stress_score ~ age_group, var.equal = FALSE)
 
 ```{r}
 
-### Digit span forwards / Short-term memory ###
+###### Digit span forwards / Short-term memory ######
 
-# Ms and SDs for each age group
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -492,9 +459,9 @@ df_igt %>%  cohens_d(dig_span_f ~ age_group, var.equal = FALSE)
 
 ```{r}
 
-### Digit span backwards / Working memory ###
+###### Digit span backwards / Working memory ######
 
-# Ms and SDs for each age group
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -546,9 +513,9 @@ df_igt %>%  cohens_d(dig_span_b ~ age_group, var.equal = FALSE)
 
 
 ```{r}
-### Matrices / Fluid intelligence ###
+###### Matrices / Fluid intelligence ######
 
-# Ms and SDs for each age group
+# Ms and SDs by age group
 
 df_igt %>% 
   group_by(age_group) %>% 
@@ -606,7 +573,7 @@ df_igt %>%  cohens_d(matrices ~ age_group, var.equal = FALSE)
 
 mat_outliers_removed <- df_igt[-c(58, 76, 100, 109),]
 
-## T-test with outliers removed ##
+# T-test with outliers removed 
 
 mat.test2 <- anx_outliers_removed %>% 
   t_test(matrices ~ age_group) %>%
@@ -616,4 +583,237 @@ mat.test2
 # Still significant
 
 ```
+
+
+```{r}
+###### Analyses of IGT blocks ######
+
+# Prep data
+
+df_igt <- df_igt %>%
+rename(decka_block1 = deck_a_block_1,
+deckb_block1 = deck_b_block_1,
+deckc_block1 = deck_c_block1,
+deckd_block1 = deck_d_block1,
+decka_block2 = deck_a_block_2,
+deckb_block2 = deck_b_block_2,
+deckc_block2 = deck_c_block2,
+deckd_block2 = deck_d_block2,
+decka_block3 = deck_a_block_3,
+deckb_block3 = deck_b_block_3,
+deckc_block3 = deck_c_block3,
+deckd_block3 = deck_d_block3,
+decka_block4 = deck_a_block_4,
+deckb_block4 = deck_b_block_4,
+deckc_block4 = deck_c_block4,
+deckd_block4 = deck_d_block4,
+decka_block5 = deck_a_block_5,
+deckb_block5 = deck_b_block_5,
+deckc_block5 = deck_c_block5,
+deckd_block5 = deck_d_block5
+)
+
+
+# Update ID variable to factor
+
+df_igt$id <- as.factor(df_igt$id)
+
+# Convert to long form data
+
+df_igt_bad_long <- pivot_longer(df_igt, cols = c(28:37), 
+                         names_to = c("deck","block"), 
+                         names_sep = "_", 
+                         values_to = "proportion_selected")
+
+
+df_igt_bad_long$deck <- as.factor(df_igt_bad_long$deck)
+
+df_igt_bad_long$block <- as.factor(df_igt_bad_long$block)
+
+df_igt_bad_long$id <- as.factor(df_igt_bad_long$id)
+
+
+df_igt_bad_long <- reorder_levels(df_igt_bad_long, block, order = c("block1", "block2", "block3",
+                                                                    "block4", "block5"))
+### Summary stats on bad deck selections ###
+
+df_igt_bad_long %>% 
+  group_by(age_group, advice_condition) %>% 
+  get_summary_stats(proportion_selected, type = "mean_sd")
+
+# Check variance between samples sizes - Blanca et al., 2018.
+
+young_var_none <- var(df_igt_bad_long$advice_condition=="None" & df_igt_bad_long$age_group=="Young", na.rm=TRUE)
+
+young_var_none
+
+young_var_A <- var(df_igt_bad_long$advice_condition=="A" & df_igt_bad_long$age_group=="Young", na.rm=TRUE)
+
+young_var_A
+
+young_var_B <- var(df_igt_bad_long$advice_condition=="B" & df_igt_bad_long$age_group=="Young", na.rm=TRUE)
+
+young_var_B
+
+older_var_none <- var(df_igt_bad_long$advice_condition=="None" & df_igt_bad_long$age_group=="Older", na.rm=TRUE)
+
+older_var_none
+
+older_var_A <- var(df_igt_bad_long$advice_condition=="A" & df_igt_bad_long$age_group=="Older", na.rm=TRUE)
+
+older_var_A
+
+older_var_B <- var(df_igt_bad_long$advice_condition=="B" & df_igt_bad_long$age_group=="Older", na.rm=TRUE)
+
+older_var_B
+
+variance_ratio_bad_long <- young_var_none/older_var_A
+
+variance_ratio_bad_long # 1.2 = ratio is fine
+
+```
+
+
+```{r}
+###### ANCOVA ######
+
+# Boxplots
+
+deckab_bxp1 <- ggboxplot(
+  df_igt_bad_long, x = "advice_condition", y = "proportion_selected",
+  color = "age_group", palette = "jco",
+  facet.by = "deck", short.panel.labs = FALSE
+  )
+deckab_bxp1
+
+# Check outliers
+
+abdecks_outliers <- df_igt_bad_long %>%
+  group_by(age_group, advice_condition, deck, block) %>%
+  identify_outliers(proportion_selected)
+
+abdecks_outliers
+#12 extreme outliers
+
+# Shapiro Wilks test
+
+df_igt_bad_long %>%
+  group_by(age_group, advice_condition, deck, block) %>%
+  shapiro_test(proportion_selected) 
+
+# Levene's test
+
+df_igt_bad_long %>%
+  group_by(deck, block) %>%
+  levene_test(proportion_selected ~ age_group*advice_condition)
+
+# Run ANCOVA
+
+abdecks_aov <- aov_ez("id","proportion_selected",df_igt_bad_long,
+                      between=c("age_group", "advice_condition"),within=c("deck","block"),
+                      covariate = c("stress_score", "anxiety_score", "depression_score",
+                                    "education", "matrices"),
+                      factorize = FALSE,
+                      anova_table = list(es = "pes")
+                      )
+
+abdecks_aov
+
+# Main effect of age group
+
+maineffage1 <- emmeans(abdecks_aov, ~age_group)
+
+maineffage1 
+
+df_igt_bad_long %>% group_by(age_group) %>% 
+  get_summary_stats(proportion_selected, type = "mean_sd")
+
+# Main effect of advice condition
+
+adviceconditionmain <- emmeans(abdecks_aov, ~advice_condition)
+
+adviceconditionmain
+
+pairs(adviceconditionmain, adjust = "tukey")
+
+df_igt_bad_long %>% group_by(advice_condition) %>% 
+  get_summary_stats(proportion_selected, type = "mean_sd")
+
+# Main effect of deck
+
+maineffdeck1 <- emmeans(abdecks_aov, ~deck)
+
+maineffdeck1
+
+df_igt_bad_long %>% group_by(deck) %>% 
+  get_summary_stats(proportion_selected, type = "mean_sd")
+
+# Deck by block interaction
+
+deck_block_int <- emmeans(abdecks_aov, ~deck|block)
+deck_block_int
+
+pairs(deck_block_int)
+
+# Advice condition by deck by block interaction
+
+adv_deck_block_int <- emmeans(abdecks_aov, ~advice_condition|deck|block)
+
+adv_deck_block_int
+
+pairs(adv_deck_block_int)
+
+```
+
+
+```{r}
+##### Interaction with education covariate #####
+
+lm_edu_deck <- lm(proportion_selected~deck:education, data = df_igt_bad_long)
+
+summary(lm_edu_deck)
+
+
+```
+
+
+```{r}
+##### Advice condition x deck x block graph #####
+
+abdecks_graph1 <- afex_plot(abdecks_aov, x = "block", trace = "advice_condition", 
+                        panel = "deck", error = "none",
+                        data_geom = geom_line, data_arg = list(width = 0.4), 
+                        point_arg = list(size = 2), line_arg = list(size = .5),
+                        factor_levels = list(block = c("1", "2", "3", "4","5"),
+                                    advice_condition = c("No Advice", "A Advice",
+                                                         "B Advice"),
+                                    deck = c("Deck A", "Deck B")), 
+                  legend_title = "Advice Condition") + 
+  labs(y = "Proportion Selected", x = "Block")+
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(colour = "grey"))
+
+abdecks_graph1
+
+
+# To save the graph properly
+#### ggsave("abdecks_graph1.png", device = "png", plot = abdecks_graph1,
+    ###   width = 19, height = 8, units = "cm", 
+      ### dpi = 600)
+
+```
+
+
+
+
+
+
+
+
+
 
