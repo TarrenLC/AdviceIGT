@@ -40,6 +40,10 @@ library(afex)
 
 library(emmeans)
 
+library(ggpubr)
+
+library(Hmisc)
+
 ```
 
 ```{r}
@@ -781,8 +785,8 @@ summary(lm_edu_deck)
 ##### Advice condition x deck x block graph #####
 
 abdecks_graph1 <- afex_plot(abdecks_aov, x = "block", trace = "advice_condition", 
-                        panel = "deck", error = "none",
-                        data_geom = geom_line, data_arg = list(width = 0.4), 
+                        panel = "deck", error = NULL,
+                        data_arg = list(colour = "transparent"), # have to add colour = "transparent" to take out background data
                         point_arg = list(size = 2), line_arg = list(size = .5),
                         factor_levels = list(block = c("1", "2", "3", "4","5"),
                                     advice_condition = c("No Advice", "A Advice",
@@ -801,17 +805,203 @@ abdecks_graph1 <- afex_plot(abdecks_aov, x = "block", trace = "advice_condition"
 abdecks_graph1
 
 
-# To save the graph properly
-#### ggsave("abdecks_graph1.png", device = "png", plot = abdecks_graph1,
-    ###   width = 19, height = 8, units = "cm", 
-      ### dpi = 600)
+#### To save the graph properly
+## ggsave("abdecks_graph1.png", device = "png", plot = abdecks_graph1,
+##       width = 19, height = 8, units = "cm", 
+##       dpi = 600)
 
 ```
 
 
 
+```{r}
+
+###### Facial EMG Analyses #######
+
+# Prep data
+
+df_losses <- read_csv("2021-12_First_Losses_DeckAB.csv")
+
+df_losses <- clean_names(df_losses)
+
+# Change advice condition values under the advice column (creates duplicates with the Deck column)
+
+df_losses["advice"][df_losses["advice"] == "A"] <- "advice_A"
+
+df_losses["advice"][df_losses["advice"] == "B"] <- "advice_B"
+
+df_losses["advice"][df_losses["advice"] == "None"] <- "no_advice"
+
+# Set factors
+
+df_losses$id <- as.factor(df_losses$id)
+
+df_losses$age_group <- factor(df_losses$age_group, levels = c("Young", "Older"))
+
+df_losses$advice <- factor(df_losses$advice, levels = c("no_advice", "advice_A", "advice_B"))
+
+df_losses$deck <- factor(df_losses$deck, levels = c("A", "B"))
+
+# Spot check info is all in the correct columns
+
+structure(df_losses)
+
+# Descriptives
+
+df_losses %>% 
+  group_by(age_group, advice, deck) %>% 
+  get_summary_stats(avg_change, type = "mean_sd")
+
+```
 
 
+```{r}
+
+##### EMG ANOVA #####
+
+# Boxplot
+
+bxpemg <- ggboxplot(
+  df_losses, x = "age_group", y = "avg_change",
+  color = "advice", palette = "jco",
+  facet.by = "deck"
+)
+bxpemg
+
+
+# Shapiro-Wilk test
+
+df_losses %>%
+  group_by(age_group, advice, deck) %>%
+  shapiro_test(avg_change)
+
+# Levene Test
+
+df_losses %>%
+  group_by(deck) %>%
+  levene_test(avg_change ~ age_group*advice)
+
+# Assumption met.
+
+# Mixed ANOVA Analysis 
+
+frown.aov <- aov_ez("id","avg_change",df_losses,
+                      between=c("age_group", "advice"),within=c("deck"),
+                      anova_table = list(es = "pes")
+                      )
+get_anova_table(frown.aov)
+
+
+df_losses %>% 
+  group_by(age_group, advice) %>% 
+  get_summary_stats(avg_change, type = "mean_sd")
+
+
+df_losses %>% 
+  group_by(age_group, deck) %>% 
+  get_summary_stats(avg_change, type = "mean_sd")
+
+```
+
+
+```{r}
+####### Correlation Analyses ######
+
+# Prep data
+
+# Split into age groups
+
+young_df1 <- filter(df_igt, age_group == "Young")
+
+
+older_df1 <- filter(df_igt, age_group == "Older")
+
+# Group average proportion of deck a and deck b selections for each person 
+
+young_df2 <- young_df1 %>%
+  rowwise() %>%
+  mutate(decka = (mean(c_across(decka_block1:decka_block5), na.rm=T)),
+       deckb = (mean(c_across(deckb_block1:deckb_block5), na.rm=T)))
+
+
+older_df2 <- older_df1 %>% 
+  rowwise() %>% 
+  mutate(decka = (mean(c_across(decka_block1:decka_block5), na.rm=T)),
+       deckb = (mean(c_across(deckb_block1:deckb_block5), na.rm=T)))
+
+
+
+```
+
+
+```{r}
+### Young adults correlations ###
+
+# Select variables for young adults
+
+young_df2 <- select(young_df2, "education", "dig_span_f", "dig_span_b", "matrices", "stress_score", 
+                    "anxiety_score", "depression_score", "decka", "deckb")
+
+structure(young_df2)
+
+ggqqplot(young_df2$matrices, ylab = "matrices")
+
+ggqqplot(young_df2$dig_span_f, ylab = "dig_span_f")
+
+ggqqplot(young_df2$dig_span_b, ylab = "dig_span_b")
+
+ggqqplot(young_df2$stress_score, ylab = "stress_score")
+
+ggqqplot(young_df2$anxiety_score, ylab = "anxiety_score")
+
+ggqqplot(young_df2$depression_score, ylab = "depression_score")
+
+ggqqplot(young_df2$decka, ylab = "decka")
+
+ggqqplot(young_df2$deckb, ylab = "deckb")
+
+# Spearman's correlation matrix due to distribution of data
+
+ya_corr_1 <- rcorr(as.matrix(young_df2), type = "spearman")
+
+ya_corr_1
+
+```
+
+
+```{r}
+### Older adults correlations ###
+
+# Select variables for older adults
+
+older_df2 <- select(older_df2, "education", "dig_span_f", "dig_span_b", "matrices", "stress_score", 
+                    "anxiety_score", "depression_score", "decka", "deckb")
+
+structure(older_df2)
+
+ggqqplot(older_df2$matrices, ylab = "matrices")
+
+ggqqplot(older_df2$dig_span_f, ylab = "dig_span_f")
+
+ggqqplot(older_df2$dig_span_b, ylab = "dig_span_b")
+
+ggqqplot(older_df2$stress_score, ylab = "stress_score")
+
+ggqqplot(older_df2$anxiety_score, ylab = "anxiety_score")
+
+ggqqplot(older_df2$depression_score, ylab = "depression_score")
+
+ggqqplot(older_df2$decka, ylab = "decka")
+
+ggqqplot(older_df2$deckb, ylab = "deckb")
+
+# Spearman's correlation
+
+oa_corr_1 <- rcorr(as.matrix(older_df2), type = "spearman")
+
+print(oa_corr_1)
+
+```
 
 
 
