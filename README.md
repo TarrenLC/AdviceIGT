@@ -1,4 +1,4 @@
 # AdviceIGT
-Analyses of Advice and IGT data
+Analyses of Advice and IGT data in R-Studio.
 
-This a line from RStudio
+Demographics, behavioural, facial EMG and correlations.
